@@ -1,12 +1,14 @@
 # app.py
 from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
+import os
 import pickle
 import numpy as np
 from statistics import mean
 import csv
-import os
 
 app = Flask(__name__)
+CORS(app)
 
 # Load batter data from CSV
 def load_batters_from_csv():
@@ -26,10 +28,19 @@ def load_batters_from_csv():
     
     return sorted(batters)  # Return sorted list of batters
 
-# Load the trained model
+# Model loading with error handling
+model = None
 model_filename = "trained_model.pkl"
-with open(model_filename, "rb") as file:
-    model = pickle.load(file)
+
+try:
+    if os.path.exists(model_filename):
+        with open(model_filename, "rb") as file:
+            model = pickle.load(file)
+            print(f"Model loaded successfully from {model_filename}")
+    else:
+        print(f"Warning: Model file {model_filename} not found")
+except Exception as e:
+    print(f"Error loading model: {str(e)}")
 
 # Define IPL teams
 ipl_teams = ["CSK", "MI", "RCB", "KKR", "DC", "SRH", "PBKS", "RR", "GT", "LSG"]
@@ -511,6 +522,9 @@ def index():
 
 @app.route("/predict", methods=["POST"])
 def predict():
+    if model is None:
+        return jsonify({"error": "Model not loaded. Please check server logs."}), 503
+        
     try:
         data = request.get_json()
         
@@ -601,8 +615,5 @@ def predict():
         return jsonify({"error": f"An error occurred during prediction: {str(e)}"}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
-
-
-
-#End of Code... Thank U..
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
